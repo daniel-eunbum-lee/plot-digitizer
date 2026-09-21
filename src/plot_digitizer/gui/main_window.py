@@ -94,6 +94,8 @@ class MainWindow(QMainWindow):
         file_menu = self.menuBar().addMenu("&File")
         open_action = file_menu.addAction("&Open Image...")
         open_action.triggered.connect(self.open_image_dialog)
+        reset_action = file_menu.addAction("&Reset Project...")
+        reset_action.triggered.connect(self.reset_project)
         open_project_action = file_menu.addAction("Open &Project...")
         open_project_action.triggered.connect(self.open_project_dialog)
         save_project_action = file_menu.addAction("&Save Project As...")
@@ -141,9 +143,25 @@ class MainWindow(QMainWindow):
         self._data_point_overlay_items = []
         self._perspective_pick_points = []
         self._perspective_overlay_items = []
+        self._calibration_dialog = None
+        self._pending_calibration_axis = None
         self._undo_stack.clear()
         self._refresh_point_table()
         self._refresh_curve_panel()
+
+    def reset_project(self) -> None:
+        if self.project is None:
+            QMessageBox.information(self, "No image loaded", "Open an image before resetting.")
+            return
+        confirmed = QMessageBox.question(
+            self,
+            "Reset project?",
+            "This discards calibration, perspective correction, and all picked/traced "
+            "points, and reloads the original image.",
+        )
+        if confirmed != QMessageBox.StandardButton.Yes:
+            return
+        self.open_image(self.project.image_path)
 
     def open_calibration_dialog(self) -> None:
         if self.project is None:
