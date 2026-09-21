@@ -1,0 +1,14 @@
+{
+    "name": "DevEnviron Claude Code",
+    "image": "mcr.microsoft.com/devcontainers/python:3.12-bookworm",
+    "features": {
+        // Installs a modern Node.js version (latest LTS or specific)
+        "ghcr.io/devcontainers/features/node:1": {
+            "version": "lts"
+        }
+    },
+    "postCreateCommand": "sudo apt-get update && sudo apt-get install -y vim curl && curl -fsSL https://claude.ai/install.sh | bash",
+	"mounts": [
+		"source=${localEnv:HOME}/.claude,target=/home/vscode/.claude,type=bind,consistency=cached"
+	]
+}
