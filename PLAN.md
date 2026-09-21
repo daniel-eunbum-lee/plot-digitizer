@@ -175,6 +175,46 @@ misclicks, but worth expanding if real usage shows otherwise.
       log-x case, validation errors (`step <= 0`, <2 points), and the undo/redo round-trip.
       Lint/format/mypy clean.
 
+## M14 — GitHub issue backlog (#1-#5)
+- [x] #5 bug: `axis_detection._detect_lines` clustered a thick line's two Canny
+      edges into one candidate at their midpoint (`_EDGE_MERGE_DISTANCE = 14px`,
+      empirically covers strokes up to ~12px). Regression tests added for
+      thick-line centering and for distinct nearby gridlines *not* merging.
+      63 tests -> 65, all passing; lint/format/mypy clean.
+- [x] #1 bug: added `imaging/legend_detect.py` (`detect_legend_box`): a
+      rectangle inset from the plot spines with a dark solid border (vs. a
+      light/dashed gridline-bounded region) and a plausible size. Wired into
+      `curve_trace.trace_curve_by_color` as a mask-clearing step before
+      thresholding/marker detection (`exclude_legend=True` by default).
+      Refactored `detect_plot_area` out of `tick_ocr.py` into
+      `axis_detection.py` (pure geometry, no OCR dependency) so curve tracing
+      doesn't have to import `pytesseract` to use it. Verified against all
+      three real example charts' actual legends plus synthetic tests
+      (framed-box detection, no-plot-area no-op, gridline-cell rejection, and
+      an end-to-end trace where a same-colored legend swatch is correctly
+      excluded). The easy-example test's manual legend pixel-blank hack was
+      removed since detection now handles it live. 131 tests passing,
+      lint/format/mypy clean.
+- [x] #2 enhancement ("trace by marker"): confirmed already implemented in
+      `marker_detect.py` / wired into `curve_trace.trace_curve_by_color`
+      (`detect_markers=True` by default, commit 99a4c9d, merged ~30min before
+      the issue was filed) -- glyph center is reported as the point, matching
+      the issue's ask exactly. No new code; close with an explanation.
+- [x] #3 enhancement: added `overlays.set_data_point_marker_highlighted`
+      (mirrors the existing `set_reference_line_highlighted`) and wired the
+      "Digitized Points" `QTableView`'s row selection to it in
+      `main_window.py` (`_on_point_table_selection_changed`), same
+      select-a-row -> highlight-the-canvas-marker behavior the calibration
+      dialog already had. 134 tests passing (new: overlay unit tests +
+      integration test asserting only the selected row's marker changes color
+      and clearing selection restores all of them); lint/format/mypy clean.
+- [x] #4 enhancement: switched all three x-grids in
+      `examples/generate_test_plots.py` to exact steps (easy 1.0, medium 2.0,
+      hard 0.5, all via `np.linspace` endpoints chosen so the step divides
+      evenly) instead of arbitrary point counts over a fixed range; regenerated
+      all three PNGs and their answer-key CSVs. 134 tests still passing against
+      the regenerated fixtures; lint/format/mypy clean.
+
 ## Post-v1 additions
 - **Reset Project** (`File → Reset Project...`): confirms, then reloads the current image via the
   existing `open_image()` reset path — discards calibration, perspective, and all points without
