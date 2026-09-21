@@ -102,7 +102,10 @@ def _add_scan_noise(png_path: Path, *, sigma: float) -> None:
 
 
 def _build_easy() -> list[CurveSpec]:
-    x = np.linspace(0, 10, 10)
+    # Step of exactly 1.0 (not np.linspace(0, 10, 10)'s 10/9), so every data
+    # point -- and its answer-key value -- is a clean number to eyeball or
+    # diff, rather than a repeating decimal like 1.11111.
+    x = np.linspace(0, 10, 11)
     return [
         CurveSpec("Curve A", x, 2 * x + 5, "tab:blue", "o", "-", 2.5),
         CurveSpec("Curve B", x, 40 - x, "tab:red", "s", "-", 2.5),
@@ -110,7 +113,10 @@ def _build_easy() -> list[CurveSpec]:
 
 
 def _build_medium() -> list[CurveSpec]:
-    x = np.linspace(0, 20, 13)
+    # Step of exactly 2.0 (not np.linspace(0, 20, 13)'s 20/12); Curve C's
+    # (x - 10) offset stays an even number at every sample, so its quadratic
+    # term is also a clean value rather than a repeating decimal.
+    x = np.linspace(0, 20, 11)
     return [
         CurveSpec("Curve A", x, 5 + 3 * x, "tab:blue", "o", "-", 1.5),
         CurveSpec("Curve B", x, 80 - 2.5 * x, "tab:green", "^", "-", 1.5),
@@ -119,7 +125,11 @@ def _build_medium() -> list[CurveSpec]:
 
 
 def _build_hard() -> list[CurveSpec]:
-    x = np.linspace(0.5, 10, 15)
+    # Step of exactly 0.5 (not np.linspace(0.5, 10, 15)'s 9.5/14). The curves
+    # themselves (exponential/reciprocal) still produce non-round y-values --
+    # that's inherent to "hard", not the repeating-decimal x-grid artifact
+    # this fixes.
+    x = np.linspace(0.5, 10, 20)
     return [
         CurveSpec("Curve A", x, 5 * np.exp(0.35 * x), "#1a3fa8", "o", "-", 1.0),
         CurveSpec("Curve B", x, 4 * np.exp(0.33 * x), "#2a4fb8", None, "--", 1.0),
