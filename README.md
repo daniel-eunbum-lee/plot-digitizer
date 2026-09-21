@@ -85,6 +85,11 @@ A ready-made chart to practice this on is included at
 [`examples/README.md`](examples/README.md) for its axis ranges and a note on why it's a good
 edge case for auto-tracing.
 
+For checking your own digitizing *accuracy* against a known-correct answer (the NASA chart above
+has no recorded ground truth), `examples/` also has three synthetic test plots — easy, medium,
+and hard — each with an answer-key CSV per curve giving the exact data points used to draw it.
+See [`examples/README.md`](examples/README.md) for details.
+
 ## Development
 
 ```bash
