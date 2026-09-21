@@ -18,7 +18,7 @@ uv sync                      # install/update the environment from pyproject.tom
 uv run python -m plot_digitizer   # launch the app
 uv run pytest                 # run the full test suite
 uv run pytest -m "not gui"    # run only the headless (non-Qt-display) subset
-uv run pytest tests/unit/test_transform.py   # run a single test file
+uv run pytest tests/calibration/test_transform.py   # run a single test file
 uv run ruff check .            # lint
 uv run ruff format .            # format
 uv run mypy src                  # type check
@@ -59,7 +59,7 @@ them — don't invert this by persisting data coordinates as ground truth.
   this codebase leans numeric/array-heavy where it's easy to skip).
 - Why-comments are expected — not restating-the-code comments — around: the log-scale coordinate
   fit in `calibration/`, the homography math in `imaging/perspective.py`, and the curve-tracing
-  heuristics in `imaging/curve_tracing.py`. These are the spots where the *reason* for a
+  heuristics in `imaging/curve_trace.py`. These are the spots where the *reason* for a
   non-obvious step (e.g. why log-transform before fitting, why cluster in HSV not RGB) isn't
   visible from the code alone.
 - Model types (`Point`, `DataPoint`, `Curve`, `Project`, `AxisCalibration`) are plain dataclasses,
