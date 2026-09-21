@@ -34,6 +34,42 @@ def test_detect_horizontal_lines_finds_known_axis_position() -> None:
     assert candidates[0].position == pytest.approx(150.0, abs=2.0)
 
 
+def test_detect_vertical_lines_reports_one_centered_candidate_for_a_thick_line() -> None:
+    # A thick stroke produces two Canny edges (one per side); regression test
+    # for a bug where each edge surfaced as its own candidate, both flush to
+    # one side of the drawn line instead of a single one at its true center.
+    image = _blank_chart()
+    cv2.line(image, (50, 5), (50, 195), (0, 0, 0), 9)
+
+    candidates = detect_vertical_lines(image)
+
+    assert len(candidates) == 1
+    assert candidates[0].position == pytest.approx(50.0, abs=1.0)
+
+
+def test_detect_horizontal_lines_reports_one_centered_candidate_for_a_thick_line() -> None:
+    image = _blank_chart()
+    cv2.line(image, (5, 150), (295, 150), (0, 0, 0), 9)
+
+    candidates = detect_horizontal_lines(image)
+
+    assert len(candidates) == 1
+    assert candidates[0].position == pytest.approx(150.0, abs=1.0)
+
+
+def test_distinct_nearby_lines_are_not_merged_into_one() -> None:
+    # Two genuinely separate gridlines, spaced well beyond the edge-merge
+    # distance, must remain two candidates rather than collapsing to one.
+    image = _blank_chart()
+    cv2.line(image, (50, 5), (50, 195), (0, 0, 0), 2)
+    cv2.line(image, (90, 5), (90, 195), (0, 0, 0), 2)
+
+    candidates = detect_vertical_lines(image)
+
+    positions = sorted(c.position for c in candidates)
+    assert positions == [pytest.approx(50.0, abs=2.0), pytest.approx(90.0, abs=2.0)]
+
+
 def test_detect_vertical_lines_ignores_horizontal_lines() -> None:
     image = _blank_chart()
     cv2.line(image, (5, 100), (295, 100), (0, 0, 0), 2)

@@ -20,6 +20,16 @@ _DEFAULT_CANNY_LOW = 50
 _DEFAULT_CANNY_HIGH = 150
 _DEFAULT_MIN_LENGTH_FRACTION = 0.5
 _MAX_LINE_GAP = 10
+# Canny reports two edges for any drawn line thicker than ~4px (one per side of
+# the stroke), so a single axis line/gridline shows up as two nearby candidates
+# straddling its true center -- exactly the "flush to one edge, not the center"
+# bug this constant exists to fix. Measured empirically, the edge separation
+# runs a couple of pixels wider than the stroke itself (Canny's gradient kernel
+# spread), so this covers strokes up to ~12px thick -- a thick pen line on a
+# scan, not just a hairline screenshot spine. Real distinct gridlines are
+# spaced many pixels apart in practice, well beyond that, so merging anything
+# this close is safe.
+_EDGE_MERGE_DISTANCE = 14.0
 
 
 @dataclass(frozen=True)
@@ -143,9 +153,35 @@ def _detect_lines(
         if bucket not in best_length_by_position or length > best_length_by_position[bucket]:
             best_length_by_position[bucket] = length
 
-    candidates = [
-        LineCandidate(position=float(position), length=length)
-        for position, length in best_length_by_position.items()
-    ]
+    candidates = _merge_edge_pairs(best_length_by_position)
     candidates.sort(key=lambda candidate: candidate.length, reverse=True)
     return candidates
+
+
+def _merge_edge_pairs(best_length_by_position: dict[int, float]) -> list[LineCandidate]:
+    """Collapse each cluster of nearby edge positions to one centered candidate.
+
+    Positions are visited in ascending order and grouped whenever consecutive
+    entries are within `_EDGE_MERGE_DISTANCE` of each other; each group is a
+    single drawn line's two Canny edges (or dashes along one edge), so the
+    group's own midpoint -- not either edge -- is the reported position.
+    """
+    ordered_positions = sorted(best_length_by_position)
+    merged: list[LineCandidate] = []
+    cluster: list[int] = []
+    cluster_max_length = 0.0
+    for position in ordered_positions:
+        if cluster and position - cluster[-1] > _EDGE_MERGE_DISTANCE:
+            merged.append(_cluster_to_candidate(cluster, cluster_max_length))
+            cluster = []
+            cluster_max_length = 0.0
+        cluster.append(position)
+        cluster_max_length = max(cluster_max_length, best_length_by_position[position])
+    if cluster:
+        merged.append(_cluster_to_candidate(cluster, cluster_max_length))
+    return merged
+
+
+def _cluster_to_candidate(cluster: list[int], length: float) -> LineCandidate:
+    center = (cluster[0] + cluster[-1]) / 2
+    return LineCandidate(position=center, length=length)
