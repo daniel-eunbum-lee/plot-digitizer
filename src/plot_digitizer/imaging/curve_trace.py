@@ -10,6 +10,10 @@ are handled separately: a glyph is many columns wide, so the per-column median
 inside it follows the glyph silhouette rather than the curve. Detected glyphs
 are cut out of the mask before the column scan and contribute one point each,
 at their center (see `marker_detect`).
+
+A legend's sample line and glyph are drawn in the exact curve color, so they
+are excised from the mask before either step even runs (see `legend_detect`) --
+otherwise the legend entry would itself be traced or mistaken for a marker.
 """
 
 from __future__ import annotations
@@ -19,6 +23,8 @@ import math
 import cv2
 import numpy as np
 
+from plot_digitizer.imaging.axis_detection import detect_plot_area
+from plot_digitizer.imaging.legend_detect import detect_legend_box
 from plot_digitizer.imaging.marker_detect import (
     MarkerBlob,
     detect_marker_blobs,
@@ -51,8 +57,14 @@ def trace_curve_by_color(
     *,
     tolerance: float = _DEFAULT_TOLERANCE,
     detect_markers: bool = True,
+    exclude_legend: bool = True,
 ) -> list[Point]:
     threshold_mask = _threshold_mask(image, target_bgr, tolerance)
+    if exclude_legend:
+        # Before any cleanup/marker detection: a legend's sample line and
+        # glyph are drawn in the exact curve color, so left in they would
+        # otherwise be traced (or detected as a marker) like real data.
+        threshold_mask = _mask_without_legend(image, threshold_mask)
     mask = _clean_mask(threshold_mask)
     blobs = _detect_markers(mask, threshold_mask) if detect_markers else []
     # With no glyphs found this is the untouched mask, so a marker-less curve
@@ -63,6 +75,17 @@ def trace_curve_by_color(
     points.extend(_trace_line(line_mask))
     points.sort(key=lambda point: point.x)
     return points
+
+
+def _mask_without_legend(image: np.ndarray, mask: np.ndarray) -> np.ndarray:
+    plot_area = detect_plot_area(image)
+    legend_box = detect_legend_box(image, plot_area=plot_area)
+    if legend_box is None:
+        return mask
+    x0, y0, x1, y1 = legend_box
+    cleared = mask.copy()
+    cleared[y0:y1, x0:x1] = 0
+    return cleared
 
 
 def _trace_line(mask: np.ndarray) -> list[Point]:

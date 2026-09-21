@@ -33,10 +33,11 @@ from plot_digitizer.gui.overlays import (
 from plot_digitizer.imaging.axis_detection import (
     LineCandidate,
     detect_horizontal_lines,
+    detect_plot_area,
     detect_vertical_lines,
     suggest_extremes,
 )
-from plot_digitizer.imaging.tick_ocr import detect_plot_area, read_tick_label, tick_label_region
+from plot_digitizer.imaging.tick_ocr import read_tick_label, tick_label_region
 
 _PIXEL_COLUMN = 0
 _VALUE_COLUMN = 1

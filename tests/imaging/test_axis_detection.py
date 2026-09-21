@@ -5,6 +5,7 @@ import pytest
 from plot_digitizer.imaging.axis_detection import (
     LineCandidate,
     detect_horizontal_lines,
+    detect_plot_area,
     detect_vertical_lines,
     suggest_extremes,
 )
@@ -12,6 +13,12 @@ from plot_digitizer.imaging.axis_detection import (
 
 def _blank_chart(height: int = 200, width: int = 300) -> np.ndarray:
     return np.full((height, width, 3), 255, dtype=np.uint8)
+
+
+def _framed_chart(height: int = 400, width: int = 600) -> np.ndarray:
+    image = np.full((height, width, 3), 255, dtype=np.uint8)
+    cv2.rectangle(image, (80, 40), (560, 340), (0, 0, 0), 2)
+    return image
 
 
 def test_detect_vertical_lines_finds_known_axis_position() -> None:
@@ -68,6 +75,26 @@ def test_distinct_nearby_lines_are_not_merged_into_one() -> None:
 
     positions = sorted(c.position for c in candidates)
     assert positions == [pytest.approx(50.0, abs=2.0), pytest.approx(90.0, abs=2.0)]
+
+
+def test_detect_plot_area_bounds_a_framed_chart() -> None:
+    area = detect_plot_area(_framed_chart())
+
+    assert area is not None
+    left, top, right, bottom = area
+    assert left == pytest.approx(80.0, abs=3.0)
+    assert top == pytest.approx(40.0, abs=3.0)
+    assert right == pytest.approx(560.0, abs=3.0)
+    assert bottom == pytest.approx(340.0, abs=3.0)
+
+
+def test_detect_plot_area_returns_none_without_enough_lines() -> None:
+    blank = np.full((400, 600, 3), 255, dtype=np.uint8)
+    assert detect_plot_area(blank) is None
+
+    single_axis = blank.copy()
+    cv2.line(single_axis, (80, 20), (80, 380), (0, 0, 0), 2)
+    assert detect_plot_area(single_axis) is None
 
 
 def test_detect_vertical_lines_ignores_horizontal_lines() -> None:

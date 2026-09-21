@@ -24,11 +24,7 @@ import cv2
 import numpy as np
 import pytesseract
 
-from plot_digitizer.imaging.axis_detection import (
-    LineCandidate,
-    detect_horizontal_lines,
-    detect_vertical_lines,
-)
+from plot_digitizer.imaging.axis_detection import LineCandidate
 
 # psm 7 == "treat the image as a single text line", which is exactly what a
 # cropped tick label is. Whitelisting digits/./- keeps Tesseract from
@@ -61,11 +57,6 @@ _MIN_X_LABEL_HEIGHT = 14
 _MIN_X_LABEL_HALF_WIDTH = 14
 _MIN_Y_LABEL_WIDTH = 30
 _MIN_Y_LABEL_HALF_HEIGHT = 9
-
-# How many of the longest detected lines are trusted as plot-area edge
-# candidates. Beyond this, short strays (legend borders, the curve itself)
-# start to dominate and would blow the bounding box out.
-_PLOT_AREA_TOP_K = 6
 
 
 def read_tick_label(image: np.ndarray, region: tuple[int, int, int, int]) -> float | None:
@@ -130,30 +121,6 @@ def tick_label_region(
         _clamp(x1, width),
         _clamp(y1, height),
     )
-
-
-def detect_plot_area(image: np.ndarray) -> tuple[float, float, float, float] | None:
-    """Infer the plot's bounding box from its detected axis spines.
-
-    The two outermost long vertical lines are taken as the left/right edges and
-    the two outermost long horizontal lines as the top/bottom edges -- on a
-    framed chart these are the spines, and on an unframed one the outermost
-    gridlines, which are close enough to anchor a label crop.
-
-    Returns None when the image yields too few lines to bound a box, or when
-    the resulting box is degenerate.
-    """
-    verticals = detect_vertical_lines(image)[:_PLOT_AREA_TOP_K]
-    horizontals = detect_horizontal_lines(image)[:_PLOT_AREA_TOP_K]
-    if len(verticals) < 2 or len(horizontals) < 2:
-        return None
-    left = min(candidate.position for candidate in verticals)
-    right = max(candidate.position for candidate in verticals)
-    top = min(candidate.position for candidate in horizontals)
-    bottom = max(candidate.position for candidate in horizontals)
-    if left >= right or top >= bottom:
-        return None
-    return left, top, right, bottom
 
 
 def _crop(image: np.ndarray, region: tuple[int, int, int, int]) -> np.ndarray | None:

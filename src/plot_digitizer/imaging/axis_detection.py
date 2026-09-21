@@ -20,6 +20,10 @@ _DEFAULT_CANNY_LOW = 50
 _DEFAULT_CANNY_HIGH = 150
 _DEFAULT_MIN_LENGTH_FRACTION = 0.5
 _MAX_LINE_GAP = 10
+# How many of the longest detected lines are trusted as plot-area edge
+# candidates. Beyond this, short strays (legend borders, the curve itself)
+# start to dominate and would blow the bounding box out.
+_PLOT_AREA_TOP_K = 6
 # Canny reports two edges for any drawn line thicker than ~4px (one per side of
 # the stroke), so a single axis line/gridline shows up as two nearby candidates
 # straddling its true center -- exactly the "flush to one edge, not the center"
@@ -101,6 +105,30 @@ def suggest_extremes(
     if lowest.position == highest.position:
         return None
     return lowest, highest
+
+
+def detect_plot_area(image: np.ndarray) -> tuple[float, float, float, float] | None:
+    """Infer the plot's bounding box from its detected axis spines.
+
+    The two outermost long vertical lines are taken as the left/right edges and
+    the two outermost long horizontal lines as the top/bottom edges -- on a
+    framed chart these are the spines, and on an unframed one the outermost
+    gridlines, which are close enough to anchor a label crop.
+
+    Returns None when the image yields too few lines to bound a box, or when
+    the resulting box is degenerate.
+    """
+    verticals = detect_vertical_lines(image)[:_PLOT_AREA_TOP_K]
+    horizontals = detect_horizontal_lines(image)[:_PLOT_AREA_TOP_K]
+    if len(verticals) < 2 or len(horizontals) < 2:
+        return None
+    left = min(candidate.position for candidate in verticals)
+    right = max(candidate.position for candidate in verticals)
+    top = min(candidate.position for candidate in horizontals)
+    bottom = max(candidate.position for candidate in horizontals)
+    if left >= right or top >= bottom:
+        return None
+    return left, top, right, bottom
 
 
 def _detect_lines(

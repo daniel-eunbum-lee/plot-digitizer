@@ -7,7 +7,7 @@ import numpy as np
 import pytest
 
 from plot_digitizer.imaging.axis_detection import LineCandidate
-from plot_digitizer.imaging.tick_ocr import detect_plot_area, read_tick_label, tick_label_region
+from plot_digitizer.imaging.tick_ocr import read_tick_label, tick_label_region
 
 requires_tesseract = pytest.mark.skipif(
     shutil.which("tesseract") is None,
@@ -28,12 +28,6 @@ def _text_image(text: str, *, width: int = 120, height: int = 40) -> np.ndarray:
         2,
         cv2.LINE_AA,
     )
-    return image
-
-
-def _framed_chart(height: int = 400, width: int = 600) -> np.ndarray:
-    image = np.full((height, width, 3), 255, dtype=np.uint8)
-    cv2.rectangle(image, (80, 40), (560, 340), (0, 0, 0), 2)
     return image
 
 
@@ -131,23 +125,3 @@ def test_tick_label_region_is_clamped_to_image_bounds() -> None:
     x0, y0, x1, y1 = region
     assert 0 <= x0 <= x1 <= 600
     assert 0 <= y0 <= y1 <= 400
-
-
-def test_detect_plot_area_bounds_a_framed_chart() -> None:
-    area = detect_plot_area(_framed_chart())
-
-    assert area is not None
-    left, top, right, bottom = area
-    assert left == pytest.approx(80.0, abs=3.0)
-    assert top == pytest.approx(40.0, abs=3.0)
-    assert right == pytest.approx(560.0, abs=3.0)
-    assert bottom == pytest.approx(340.0, abs=3.0)
-
-
-def test_detect_plot_area_returns_none_without_enough_lines() -> None:
-    blank = np.full((400, 600, 3), 255, dtype=np.uint8)
-    assert detect_plot_area(blank) is None
-
-    single_axis = blank.copy()
-    cv2.line(single_axis, (80, 20), (80, 380), (0, 0, 0), 2)
-    assert detect_plot_area(single_axis) is None

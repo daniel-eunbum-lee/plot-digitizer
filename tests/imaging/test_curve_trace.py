@@ -48,6 +48,23 @@ def test_trace_curve_ignores_unrelated_colors() -> None:
     assert all(p.y < 180 for p in traced)
 
 
+def test_legend_swatch_is_not_traced_as_curve_data() -> None:
+    # A framed plot with a small inset legend box holding a sample line in
+    # the exact curve color, well clear of the real curve -- if it leaked
+    # into the trace it would show up as spurious points at the legend's row.
+    image = np.full((200, 300, 3), 255, dtype=np.uint8)
+    cv2.rectangle(image, (20, 10), (280, 190), (0, 0, 0), 2)  # plot spines
+    curve_points = np.array([(30, 150), (150, 100), (270, 60)], dtype=np.int32)
+    cv2.polylines(image, [curve_points], False, (0, 0, 255), 2)
+    cv2.rectangle(image, (200, 20), (260, 40), (80, 80, 80), 1)  # legend frame
+    cv2.line(image, (205, 30), (225, 30), (0, 0, 255), 2)  # legend swatch line
+
+    traced = trace_curve_by_color(image, target_bgr=(0, 0, 255), tolerance=30.0)
+
+    assert traced
+    assert all(p.y > 40 for p in traced)
+
+
 def test_no_matching_color_returns_empty_list() -> None:
     image = np.full((100, 100, 3), 255, dtype=np.uint8)
 
@@ -142,10 +159,10 @@ def _axes_spines(image: np.ndarray) -> tuple[float, float, float, float]:
 def test_easy_example_curve_matches_its_answer_key() -> None:
     image = cv2.imread(str(_EXAMPLES_DIR / "test_plot_easy.png"))
     assert image is not None
-    # The legend's sample line and glyph are drawn in the identical curve color;
-    # restricting tracing to a region of interest is a separate concern, so
-    # blank the legend box (well clear of both curves) out of the way here.
-    image[55:145, 985:1165] = 255
+    # The legend's sample line and glyph are drawn in the identical curve
+    # color as curve 1; trace_curve_by_color's automatic legend exclusion
+    # (legend_detect.detect_legend_box) is what keeps them out, not a manual
+    # crop -- this test would fail if that exclusion silently broke.
 
     left, right, bottom, top = _axes_spines(image)
     transform = CoordinateTransform(
