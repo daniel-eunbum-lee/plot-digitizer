@@ -8,9 +8,11 @@ import numpy as np
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QAction, QColor, QUndoStack
 from PySide6.QtWidgets import (
+    QAbstractItemView,
     QDialog,
     QDockWidget,
     QFileDialog,
+    QGraphicsEllipseItem,
     QGraphicsItem,
     QMainWindow,
     QMessageBox,
@@ -27,6 +29,7 @@ from plot_digitizer.gui.overlays import (
     make_data_point_marker,
     make_horizontal_reference_line,
     make_vertical_reference_line,
+    set_data_point_marker_highlighted,
 )
 from plot_digitizer.gui.point_table import PointTableModel
 from plot_digitizer.gui.resample_dialog import ResampleDialog
@@ -67,7 +70,7 @@ class MainWindow(QMainWindow):
         self._calibration_dialog: AxisCalibrationDialog | None = None
         self._pending_calibration_axis: str | None = None
         self._calibration_overlay_items: list[QGraphicsItem] = []
-        self._data_point_overlay_items: list[QGraphicsItem] = []
+        self._data_point_overlay_items: list[QGraphicsEllipseItem] = []
         self._perspective_pick_points: list[Point] = []
         self._perspective_overlay_items: list[QGraphicsItem] = []
         self._undo_stack = QUndoStack(self)
@@ -83,10 +86,14 @@ class MainWindow(QMainWindow):
         self._build_menu()
 
     def _build_point_table_dock(self) -> None:
-        table_view = QTableView()
-        table_view.setModel(self._point_table_model)
+        self._point_table_view = QTableView()
+        self._point_table_view.setModel(self._point_table_model)
+        self._point_table_view.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
+        selection_model = self._point_table_view.selectionModel()
+        assert selection_model is not None
+        selection_model.selectionChanged.connect(self._on_point_table_selection_changed)
         dock = QDockWidget("Digitized Points", self)
-        dock.setWidget(table_view)
+        dock.setWidget(self._point_table_view)
         self.addDockWidget(Qt.DockWidgetArea.RightDockWidgetArea, dock)
 
     def _build_curve_panel_dock(self) -> None:
@@ -487,3 +494,10 @@ class MainWindow(QMainWindow):
             marker = make_data_point_marker(point.x, point.y, _DATA_POINT_COLOR)
             scene.addItem(marker)
             self._data_point_overlay_items.append(marker)
+
+    def _on_point_table_selection_changed(self) -> None:
+        selected_rows = {index.row() for index in self._point_table_view.selectedIndexes()}
+        for row, marker in enumerate(self._data_point_overlay_items):
+            set_data_point_marker_highlighted(
+                marker, highlighted=row in selected_rows, base_color=_DATA_POINT_COLOR
+            )

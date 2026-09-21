@@ -77,3 +77,15 @@ def set_reference_line_highlighted(
     pen.setColor(_HIGHLIGHT_COLOR if highlighted else base_color)
     pen.setStyle(Qt.PenStyle.SolidLine if highlighted else Qt.PenStyle.DashLine)
     item.setPen(pen)
+
+
+def set_data_point_marker_highlighted(
+    item: QGraphicsEllipseItem, *, highlighted: bool, base_color: QColor
+) -> None:
+    """Toggle a data-point marker between its normal and selected-row appearance."""
+    radius = _POINT_RADIUS * 1.5 if highlighted else _POINT_RADIUS
+    center = item.rect().center()
+    item.setRect(QRectF(center.x() - radius, center.y() - radius, radius * 2, radius * 2))
+    item.setBrush(QBrush(_HIGHLIGHT_COLOR if highlighted else base_color))
+    item.setPen(QPen(QColor("black"), 2 if highlighted else 1))
+    item.setZValue(_OVERLAY_Z + (2 if highlighted else 1))

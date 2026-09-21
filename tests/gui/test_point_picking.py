@@ -93,3 +93,24 @@ def test_export_csv_with_calibration_writes_file(
     content = out_path.read_text()
     assert "x,y" in content
     assert "10.0,5.0" in content
+
+
+def test_selecting_a_table_row_highlights_only_its_canvas_marker(
+    qtbot: QtBot, tmp_path: Path
+) -> None:
+    window = _window_with_image(qtbot, tmp_path)
+    window._pick_points_action.setChecked(True)
+    window._on_canvas_clicked(10.0, 10.0)
+    window._on_canvas_clicked(20.0, 20.0)
+    base_colors = [marker.brush().color() for marker in window._data_point_overlay_items]
+
+    window._point_table_view.selectRow(1)
+
+    colors = [marker.brush().color() for marker in window._data_point_overlay_items]
+    assert colors[0] == base_colors[0]
+    assert colors[1] != base_colors[1]
+
+    window._point_table_view.clearSelection()
+
+    colors_after_clear = [marker.brush().color() for marker in window._data_point_overlay_items]
+    assert colors_after_clear == base_colors
