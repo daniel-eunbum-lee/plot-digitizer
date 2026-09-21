@@ -19,6 +19,8 @@ auto-trace) the points you care about, and export them as CSV.
   fully editable set of points.
 - **Multiple curves/series** per project, with add/switch/delete.
 - **Undo/redo** for point edits.
+- **Reset Project** — discard calibration, perspective correction, and all points, and start
+  over on the current image without re-browsing for the file.
 - **CSV export** and **project save/load** (JSON) so a session can be resumed later.
 
 ## Requirements
@@ -78,6 +80,10 @@ A typical digitizing session:
    CSV file (`x,y` header). `File → Save Project As...` saves the whole session (image path,
    calibration, all curves, perspective correction) as JSON, reopenable via
    `File → Open Project...`.
+
+Made a mess of calibration or points and want to start over on the same image? `File → Reset
+Project...` discards calibration, perspective correction, and all points, and reloads the
+original image — no need to re-browse for the file.
 
 A ready-made chart to practice this on is included at
 [`examples/nasa_hdbk_7005_shock_attenuation_srs.png`](examples/nasa_hdbk_7005_shock_attenuation_srs.png)
