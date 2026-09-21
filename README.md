@@ -79,6 +79,12 @@ A typical digitizing session:
    calibration, all curves, perspective correction) as JSON, reopenable via
    `File → Open Project...`.
 
+A ready-made chart to practice this on is included at
+[`examples/nasa_hdbk_7005_shock_attenuation_srs.png`](examples/nasa_hdbk_7005_shock_attenuation_srs.png)
+— a real scanned figure with linear axes and two similarly-colored curves. See
+[`examples/README.md`](examples/README.md) for its axis ranges and a note on why it's a good
+edge case for auto-tracing.
+
 ## Development
 
 ```bash
