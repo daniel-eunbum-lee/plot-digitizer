@@ -17,6 +17,7 @@ from PySide6.QtWidgets import (
     QTableView,
 )
 
+from plot_digitizer.calibration.resample import resample_curve_to_step
 from plot_digitizer.gui.calibration_dialog import AxisCalibrationDialog
 from plot_digitizer.gui.canvas import ImageCanvas
 from plot_digitizer.gui.color_picker_dialog import ColorPickerDialog
@@ -28,7 +29,8 @@ from plot_digitizer.gui.overlays import (
     make_vertical_reference_line,
 )
 from plot_digitizer.gui.point_table import PointTableModel
-from plot_digitizer.gui.undo_commands import AddPointCommand
+from plot_digitizer.gui.resample_dialog import ResampleDialog
+from plot_digitizer.gui.undo_commands import AddPointCommand, ResampleCurveCommand
 from plot_digitizer.imaging.color import sample_color_bgr
 from plot_digitizer.imaging.curve_trace import trace_curve_by_color
 from plot_digitizer.imaging.io import ImageLoadError, load_image
@@ -46,6 +48,7 @@ _DATA_POINT_COLOR = QColor("#1f77b4")
 _PERSPECTIVE_POINT_COLOR = QColor("orange")
 _DEFAULT_CURVE_NAME = "Curve 1"
 _PERSPECTIVE_CORNER_COUNT = 4
+_MIN_RESAMPLE_POINTS = 2
 
 
 class MainWindow(QMainWindow):
@@ -74,6 +77,7 @@ class MainWindow(QMainWindow):
         self._curve_panel.curveSelected.connect(self._on_curve_selected)
         self._curve_panel.addCurveRequested.connect(self._on_add_curve_requested)
         self._curve_panel.deleteCurveRequested.connect(self._on_delete_curve_requested)
+        self._curve_panel.resampleRequested.connect(self._on_resample_requested)
         self._build_point_table_dock()
         self._build_curve_panel_dock()
         self._build_menu()
@@ -168,7 +172,7 @@ class MainWindow(QMainWindow):
             QMessageBox.information(self, "No image loaded", "Open an image before calibrating.")
             return
 
-        dialog = AxisCalibrationDialog(self, image=self._working_image)
+        dialog = AxisCalibrationDialog(self, image=self._working_image, scene=self.canvas.scene())
         dialog.pickRequested.connect(self._arm_calibration_pick)
         self._calibration_dialog = dialog
         self.canvas.mode = InteractionMode.CALIBRATE
@@ -182,6 +186,10 @@ class MainWindow(QMainWindow):
                 self._refresh_calibration_overlays()
                 self._refresh_point_table()
         finally:
+            # Idempotent: accept/reject already cleared them. This only covers
+            # exec() returning by some other path, so no temporary overlay can
+            # survive the dialog and shadow the permanent ones.
+            dialog.clear_overlays()
             self._calibration_dialog = None
             self._pending_calibration_axis = None
             self.canvas.mode = (
@@ -354,6 +362,37 @@ class MainWindow(QMainWindow):
         self._refresh_point_table()
         self._refresh_data_point_overlays()
         self._refresh_curve_panel()
+
+    def _on_resample_requested(self) -> None:
+        if self.project is None or self.project.active_curve is None:
+            QMessageBox.information(
+                self, "Nothing to resample", "Open an image and pick points first."
+            )
+            return
+        if not self.project.is_calibrated():
+            QMessageBox.warning(
+                self, "Axes not calibrated", "Calibrate both axes before resampling."
+            )
+            return
+        curve = self.project.active_curve
+        if len(curve.points) < _MIN_RESAMPLE_POINTS:
+            QMessageBox.information(
+                self,
+                "Not enough points",
+                f"Resampling needs at least {_MIN_RESAMPLE_POINTS} points on the "
+                f"selected curve, but it has {len(curve.points)}.",
+            )
+            return
+
+        dialog = ResampleDialog(self)
+        if dialog.exec() != QDialog.DialogCode.Accepted:
+            return
+        try:
+            resampled = resample_curve_to_step(curve.points, self.project.transform(), dialog.step)
+        except ValueError as exc:
+            QMessageBox.warning(self, "Could not resample", str(exc))
+            return
+        self._undo_stack.push(ResampleCurveCommand(curve, resampled, self._on_points_changed))
 
     def save_project_dialog(self) -> None:
         if self.project is None:

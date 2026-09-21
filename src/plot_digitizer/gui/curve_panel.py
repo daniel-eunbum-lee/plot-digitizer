@@ -10,6 +10,7 @@ class CurvePanel(QWidget):
     curveSelected = Signal(int)
     addCurveRequested = Signal()
     deleteCurveRequested = Signal()
+    resampleRequested = Signal()
 
     def __init__(self) -> None:
         super().__init__()
@@ -21,6 +22,9 @@ class CurvePanel(QWidget):
         delete_button = QPushButton("Delete Curve")
         delete_button.clicked.connect(self.deleteCurveRequested)
 
+        resample_button = QPushButton("Resample to Fixed X Step...")
+        resample_button.clicked.connect(self.resampleRequested)
+
         buttons_row = QHBoxLayout()
         buttons_row.addWidget(add_button)
         buttons_row.addWidget(delete_button)
@@ -28,6 +32,7 @@ class CurvePanel(QWidget):
         layout = QVBoxLayout(self)
         layout.addWidget(self.list_widget)
         layout.addLayout(buttons_row)
+        layout.addWidget(resample_button)
 
     def set_curves(self, names: list[str], active_index: int) -> None:
         self.list_widget.blockSignals(True)

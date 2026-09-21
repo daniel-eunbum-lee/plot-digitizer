@@ -67,6 +67,32 @@ def detect_horizontal_lines(
     )
 
 
+def suggest_extremes(
+    candidates: list[LineCandidate], *, top_k: int = 6
+) -> tuple[LineCandidate, LineCandidate] | None:
+    """Guess which two candidates are the axis extremes, from pixel position alone.
+
+    An axis spine (or the outermost gridline) is typically both long and at
+    one end of the detected set, so restricting to the `top_k` longest
+    candidates -- the list arrives sorted by length descending -- and then
+    taking the min/max `position` picks the pair a user most likely wants as
+    their two calibration references. This reads no numbers off the chart;
+    it is only a ranking hint, and the caller must present it as a proposal
+    the user can edit or delete like any other candidate row.
+
+    Returns None when there is no meaningful pair to suggest: fewer than two
+    candidates, or every candidate sitting at the same position.
+    """
+    considered = candidates[:top_k]
+    if len(considered) < 2:
+        return None
+    lowest = min(considered, key=lambda candidate: candidate.position)
+    highest = max(considered, key=lambda candidate: candidate.position)
+    if lowest.position == highest.position:
+        return None
+    return lowest, highest
+
+
 def _detect_lines(
     image: np.ndarray,
     *,

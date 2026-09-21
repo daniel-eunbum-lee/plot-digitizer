@@ -118,6 +118,63 @@ misclicks, but worth expanding if real usage shows otherwise.
 - Skeleton/graph-walk tracing for looping or parametric (non-function) curves — column-wise
   centroid tracing only; revisit if real usage needs it.
 
+## M10 — Marker-aware curve tracing
+- [x] `imaging/marker_detect.py` (`MarkerBlob`, `estimate_stroke_thickness`, `detect_marker_blobs`
+      via eroded `cv2.findContours` + `cv2.moments`, sized relative to the estimated stroke
+      thickness so thresholds scale with image resolution rather than hardcoded pixel constants)
+- [x] `trace_curve_by_color(..., detect_markers=True)`: detects marker blobs, cuts their (dilated)
+      bounding boxes out of the mask before the existing column-median line scan, then inserts one
+      point per blob centroid — markers no longer skew the traced line, and marker-only (no
+      connecting line) curves now trace correctly too. Zero-blob input (pure-line curves, e.g. the
+      hard plot's dashed/dash-dot curves) is byte-identical to the pre-M10 algorithm.
+- [x] Verified: 15 new/extended tests; RMS error on `examples/test_plot_easy.png` (answer-key
+      checked) is 0.0298 data units = 0.06% of the 50-unit y-range — the first test to actually use
+      the example-plot answer-key CSVs for accuracy checking. Lint/format/mypy clean.
+      Scope note: no `kind`/`source` field added to `Point`/`DataPoint`/`Curve` — marker-vs-line
+      distinction stays internal to tracing, no save-format change.
+
+## M11 — Calibration UX: live overlays + auto-suggested extremes
+- [x] `AxisCalibrationDialog`/`_AxisPanel` now take a `scene` and draw a live, labeled ("X1", "Y1",
+      ...) overlay for every reference/candidate row as it's added — previously nothing was drawn
+      on the canvas until the dialog was accepted. Selecting a table row highlights its overlay
+      line; removing a row removes its overlay; reject/close clears all temporary overlays.
+- [x] `imaging/axis_detection.suggest_extremes()`: picks the min/max-position candidates among the
+      longest detected lines and visually flags those two rows (bold + highlight) as likely axis
+      extremes — still ordinary editable/removable rows, never auto-applied, per M7's rule.
+- [x] Verified: extended `test_calibration_dialog.py`/`test_axis_detection.py`; lint/format/mypy
+      clean.
+
+## M12 — OCR-based tick-value auto-fill
+- [x] `imaging/tick_ocr.py` (`detect_plot_area`, `tick_label_region`, `read_tick_label` via
+      `pytesseract`, grayscale -> 3x upscale -> Otsu threshold preprocessing) pre-fills a candidate
+      row's Value cell with an OCR-read number instead of the previous hardcoded `"0.0"` — still a
+      normal editable cell, same propose-never-auto-apply rule as line detection.
+- [x] New dependency: `pytesseract` (pinned in `pyproject.toml`). **Requires the Tesseract OCR
+      engine installed separately as a system binary** (not installed by `uv sync`) — documented in
+      README. Every OCR call site catches failures (including `TesseractNotFoundError`) and
+      degrades to no pre-fill; the app never crashes without the binary present.
+- [x] Verified geometrically against all three example plots (plot-area detection + crop regions
+      visually confirmed correct); recovers both axis endpoints on the easy/medium plots. Known
+      limitation, documented in the module docstring: matplotlib's log-axis superscript tick labels
+      (e.g. "10³") OCR as "103", not 1000 — expected to be corrected by hand in the editable cell.
+      Tesseract wasn't installed in the dev environment this was built in, so the 7 OCR-dependent
+      tests are `skipif`-guarded on `shutil.which("tesseract")`; non-OCR code paths (graceful
+      degradation) are tested unconditionally. Lint/format/mypy clean.
+
+## M13 — Fixed X-step (abscissa increment) resample
+- [x] `calibration/resample.py` (pure, no Qt/OpenCV): `resample_curve_to_step(points, transform,
+      step)` sorts to data space, builds a fixed-step grid from the data-x range, linearly
+      interpolates via `numpy.interp`, converts back to pixel space. Log-x axes step additively in
+      data space (matching how a user reads increments off the axis), not exponentially — documented
+      inline since it sits next to the log-fit math in `calibration/axis.py`.
+- [x] `gui/resample_dialog.py` + a "Resample to Fixed X Step..." button in `curve_panel.py`,
+      wired through a new `ResampleCurveCommand` (`gui/undo_commands.py`) so applying it replaces
+      the selected curve's points in place and is fully undoable via the existing `QUndoStack` —
+      confirmed with a round-trip test (resample, then undo restores the exact original point list).
+- [x] Verified: 12 new/extended tests covering grid boundaries, interpolation correctness, the
+      log-x case, validation errors (`step <= 0`, <2 points), and the undo/redo round-trip.
+      Lint/format/mypy clean.
+
 ## Post-v1 additions
 - **Reset Project** (`File → Reset Project...`): confirms, then reloads the current image via the
   existing `open_image()` reset path — discards calibration, perspective, and all points without

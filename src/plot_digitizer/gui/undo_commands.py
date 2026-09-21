@@ -30,3 +30,27 @@ class AddPointCommand(QUndoCommand):
     def undo(self) -> None:
         self._curve.remove_point(len(self._curve.points) - 1)
         self._on_changed()
+
+
+class ResampleCurveCommand(QUndoCommand):
+    """Replaces a curve's whole point list with a resampled one, reversibly."""
+
+    def __init__(
+        self,
+        curve: Curve,
+        new_points: list[Point],
+        on_changed: Callable[[], None],
+    ) -> None:
+        super().__init__("Resample curve")
+        self._curve = curve
+        self._old_points = list(curve.points)
+        self._new_points = list(new_points)
+        self._on_changed = on_changed
+
+    def redo(self) -> None:
+        self._curve.points = list(self._new_points)
+        self._on_changed()
+
+    def undo(self) -> None:
+        self._curve.points = list(self._old_points)
+        self._on_changed()

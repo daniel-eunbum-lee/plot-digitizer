@@ -51,6 +51,28 @@ uv run python -m plot_digitizer
 On a headless machine (a container or CI with no display), export `QT_QPA_PLATFORM=offscreen`
 first — the window will run without a visible display server.
 
+### Optional: Tesseract OCR for axis-value suggestions
+
+"Auto-Detect Lines" in the calibration dialog can also try to *read* each detected tick's label
+off the image and pre-fill the Value cell with it. That uses the [Tesseract OCR
+engine](https://github.com/tesseract-ocr/tesseract), a **system binary that `uv sync` does not
+install** — the `pytesseract` Python package it ships with is only a thin wrapper around it.
+
+On Windows, install it via the [UB-Mannheim
+installer](https://github.com/UB-Mannheim/tesseract/wiki) or `choco install tesseract`, then
+either make sure `tesseract.exe` is on your `PATH` or point `pytesseract` at it explicitly:
+
+```python
+pytesseract.pytesseract.tesseract_cmd = r"C:\Program Files\Tesseract-OCR\tesseract.exe"
+```
+
+On Linux/macOS: `apt install tesseract-ocr` or `brew install tesseract`.
+
+This is entirely optional and fully local — no network calls. **If Tesseract is absent the app
+works exactly as before**: the Value cells just start at `0.0` and you type the real values in
+yourself. Even when it is installed, OCR'd values are only a pre-filled *suggestion* in an
+editable cell — nothing is auto-applied to the calibration, so always check them.
+
 ## Example run
 
 A typical digitizing session:
