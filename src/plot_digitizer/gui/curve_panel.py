@@ -10,17 +10,21 @@ class CurvePanel(QWidget):
     curveSelected = Signal(int)
     addCurveRequested = Signal()
     deleteCurveRequested = Signal()
+    renameCurveRequested = Signal()
     resampleRequested = Signal()
 
     def __init__(self) -> None:
         super().__init__()
         self.list_widget = QListWidget()
         self.list_widget.currentRowChanged.connect(self.curveSelected)
+        self.list_widget.itemDoubleClicked.connect(lambda _item: self.renameCurveRequested.emit())
 
         add_button = QPushButton("Add Curve")
         add_button.clicked.connect(self.addCurveRequested)
         delete_button = QPushButton("Delete Curve")
         delete_button.clicked.connect(self.deleteCurveRequested)
+        rename_button = QPushButton("Rename Curve...")
+        rename_button.clicked.connect(self.renameCurveRequested)
 
         resample_button = QPushButton("Resample to Fixed X Step...")
         resample_button.clicked.connect(self.resampleRequested)
@@ -28,6 +32,7 @@ class CurvePanel(QWidget):
         buttons_row = QHBoxLayout()
         buttons_row.addWidget(add_button)
         buttons_row.addWidget(delete_button)
+        buttons_row.addWidget(rename_button)
 
         layout = QVBoxLayout(self)
         layout.addWidget(self.list_widget)

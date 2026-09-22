@@ -105,6 +105,55 @@ def test_cannot_delete_last_remaining_curve(
     assert len(window.project.curves) == 1
 
 
+def test_rename_curve_updates_name_and_panel(
+    qtbot: QtBot, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    window = _window_with_image(qtbot, tmp_path)
+    monkeypatch.setattr(
+        "plot_digitizer.gui.main_window.QInputDialog.getText",
+        lambda *args, **kwargs: ("Temperature", True),
+    )
+
+    window._on_rename_curve_requested()
+
+    assert window.project is not None
+    assert window.project.active_curve is not None
+    assert window.project.active_curve.name == "Temperature"
+    assert window._curve_panel.list_widget.item(0).text() == "Temperature"
+
+
+def test_rename_curve_cancelled_leaves_name_unchanged(
+    qtbot: QtBot, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    window = _window_with_image(qtbot, tmp_path)
+    monkeypatch.setattr(
+        "plot_digitizer.gui.main_window.QInputDialog.getText",
+        lambda *args, **kwargs: ("Ignored", False),
+    )
+
+    window._on_rename_curve_requested()
+
+    assert window.project is not None
+    assert window.project.active_curve is not None
+    assert window.project.active_curve.name == "Curve 1"
+
+
+def test_rename_curve_blank_name_is_rejected(
+    qtbot: QtBot, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    window = _window_with_image(qtbot, tmp_path)
+    monkeypatch.setattr(
+        "plot_digitizer.gui.main_window.QInputDialog.getText",
+        lambda *args, **kwargs: ("   ", True),
+    )
+
+    window._on_rename_curve_requested()
+
+    assert window.project is not None
+    assert window.project.active_curve is not None
+    assert window.project.active_curve.name == "Curve 1"
+
+
 def test_resample_replaces_points_and_undo_restores_them(
     qtbot: QtBot, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

@@ -10,6 +10,7 @@ dependencies = [
     "numpy>=2.0",
     "opencv-python-headless>=4.10",
     "pytesseract>=0.3.10",
+    "openpyxl>=3.1.5",
 ]
 
 [project.scripts]
@@ -22,6 +23,11 @@ dev = [
     "mypy>=1.11",
     "pytest-qt>=4.5.0",
     "matplotlib>=3.11.2",
+    "types-openpyxl>=3.1.5.20260827",
+]
+docs = [
+    "mkdocs>=1.6.1",
+    "mkdocs-material>=9.7.7",
 ]
 
 [build-system]

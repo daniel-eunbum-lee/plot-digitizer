@@ -14,6 +14,7 @@ from PySide6.QtWidgets import (
     QFileDialog,
     QGraphicsEllipseItem,
     QGraphicsItem,
+    QInputDialog,
     QMainWindow,
     QMessageBox,
     QTableView,
@@ -38,7 +39,8 @@ from plot_digitizer.imaging.color import sample_color_bgr
 from plot_digitizer.imaging.curve_trace import trace_curve_by_color
 from plot_digitizer.imaging.io import ImageLoadError, load_image
 from plot_digitizer.imaging.perspective import PerspectiveTransform, estimate_output_size
-from plot_digitizer.io_export.csv_export import export_curve_csv
+from plot_digitizer.io_export.csv_export import export_curve_csv, export_curves_csv
+from plot_digitizer.io_export.excel_export import export_curves_excel
 from plot_digitizer.io_export.project_file import load_project, save_project
 from plot_digitizer.model.curve import Curve
 from plot_digitizer.model.point import Point
@@ -80,6 +82,7 @@ class MainWindow(QMainWindow):
         self._curve_panel.curveSelected.connect(self._on_curve_selected)
         self._curve_panel.addCurveRequested.connect(self._on_add_curve_requested)
         self._curve_panel.deleteCurveRequested.connect(self._on_delete_curve_requested)
+        self._curve_panel.renameCurveRequested.connect(self._on_rename_curve_requested)
         self._curve_panel.resampleRequested.connect(self._on_resample_requested)
         self._build_point_table_dock()
         self._build_curve_panel_dock()
@@ -113,6 +116,10 @@ class MainWindow(QMainWindow):
         save_project_action.triggered.connect(self.save_project_dialog)
         export_action = file_menu.addAction("&Export Points to CSV...")
         export_action.triggered.connect(self.export_csv_dialog)
+        export_all_csv_action = file_menu.addAction("Export &All Curves to CSV...")
+        export_all_csv_action.triggered.connect(self.export_all_curves_csv_dialog)
+        export_all_excel_action = file_menu.addAction("Export All Curves to &Excel...")
+        export_all_excel_action.triggered.connect(self.export_all_curves_excel_dialog)
 
         edit_menu = self.menuBar().addMenu("&Edit")
         edit_menu.addAction(self._undo_stack.createUndoAction(self, "Undo"))
@@ -383,6 +390,19 @@ class MainWindow(QMainWindow):
         self._refresh_data_point_overlays()
         self._refresh_curve_panel()
 
+    def _on_rename_curve_requested(self) -> None:
+        if self.project is None or self.project.active_curve is None:
+            return
+        current_curve = self.project.active_curve
+        new_name, accepted = QInputDialog.getText(
+            self, "Rename Curve", "Name:", text=current_curve.name
+        )
+        new_name = new_name.strip()
+        if not accepted or not new_name:
+            return
+        current_curve.name = new_name
+        self._refresh_curve_panel()
+
     def _on_resample_requested(self) -> None:
         if self.project is None or self.project.active_curve is None:
             QMessageBox.information(
@@ -469,6 +489,41 @@ class MainWindow(QMainWindow):
         if not path_str:
             return
         export_curve_csv(self.project.active_curve, self.project.transform(), Path(path_str))
+
+    def export_all_curves_csv_dialog(self) -> None:
+        if not self._can_export_all_curves():
+            return
+        assert self.project is not None
+        path_str, _ = QFileDialog.getSaveFileName(
+            self, "Export all curves to CSV", "", "CSV (*.csv)"
+        )
+        if not path_str:
+            return
+        export_curves_csv(self.project.curves, self.project.transform(), Path(path_str))
+
+    def export_all_curves_excel_dialog(self) -> None:
+        if not self._can_export_all_curves():
+            return
+        assert self.project is not None
+        path_str, _ = QFileDialog.getSaveFileName(
+            self, "Export all curves to Excel", "", "Excel Workbook (*.xlsx)"
+        )
+        if not path_str:
+            return
+        export_curves_excel(self.project.curves, self.project.transform(), Path(path_str))
+
+    def _can_export_all_curves(self) -> bool:
+        if self.project is None or not self.project.curves:
+            QMessageBox.information(
+                self, "Nothing to export", "Open an image and pick points first."
+            )
+            return False
+        if not self.project.is_calibrated():
+            QMessageBox.warning(
+                self, "Axes not calibrated", "Calibrate both axes before exporting."
+            )
+            return False
+        return True
 
     def _refresh_point_table(self) -> None:
         curve = self.project.active_curve if self.project is not None else None

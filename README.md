@@ -17,11 +17,13 @@ auto-trace) the points you care about, and export them as CSV.
   real-world data coordinates live.
 - **Automatic color-based curve tracing** — sample a curve's color and auto-trace it into a dense,
   fully editable set of points.
-- **Multiple curves/series** per project, with add/switch/delete.
+- **Multiple curves/series** per project, with add/switch/delete/rename.
 - **Undo/redo** for point edits.
 - **Reset Project** — discard calibration, perspective correction, and all points, and start
   over on the current image without re-browsing for the file.
-- **CSV export** and **project save/load** (JSON) so a session can be resumed later.
+- **CSV export** (single active curve, or all curves at once in one file), **Excel export** (all
+  curves, one workbook sheet each), and **project save/load** (JSON) so a session can be resumed
+  later.
 
 ## Requirements
 
@@ -96,11 +98,14 @@ A typical digitizing session:
    - **Automatically**: `Points → Auto-Trace Curve by Color...`, click on the curve to sample its
      color, adjust the match tolerance if needed, and accept — a new curve is traced and added,
      fully editable afterward like any manual one.
-5. **Manage curves** — the "Curves" panel lists all curves in the project; add, switch, or delete
-   them as needed. `Edit → Undo/Redo` reverts/reapplies point picks.
+5. **Manage curves** — the "Curves" panel lists all curves in the project; add, switch, delete, or
+   rename them (double-click a curve's name, or the "Rename Curve..." button) as needed.
+   `Edit → Undo/Redo` reverts/reapplies point picks.
 6. **Export** — `File → Export Points to CSV...` writes the active curve's data coordinates to a
-   CSV file (`x,y` header). `File → Save Project As...` saves the whole session (image path,
-   calibration, all curves, perspective correction) as JSON, reopenable via
+   CSV file (`x,y` header). To export every curve at once, use `File → Export All Curves to
+   CSV...` (one file, an `{name}_x`/`{name}_y` column pair per curve) or `File → Export All Curves
+   to Excel...` (one workbook, one sheet per curve). `File → Save Project As...` saves the whole
+   session (image path, calibration, all curves, perspective correction) as JSON, reopenable via
    `File → Open Project...`.
 
 Made a mess of calibration or points and want to start over on the same image? `File → Reset
