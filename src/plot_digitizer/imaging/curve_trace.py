@@ -58,6 +58,18 @@ _MARKER_MAX_DIAMETER_IMAGE_FRACTION = 0.1
 # extra pixels so no glyph fringe is left behind to skew the line scan.
 _MARKER_CLEAR_PADDING = 2
 
+# A marker clipped by the plot border keeps roughly its full glyph size along
+# its uncut dimension, so its bounding box's larger side stays close to a
+# full marker's diameter even though a sliver was cut away -- a wide
+# tolerance band around the detected blobs' own median diameter.
+_CLIPPED_FRAGMENT_MIN_DIAMETER_RATIO = 0.3
+_CLIPPED_FRAGMENT_MAX_DIAMETER_RATIO = 1.3
+# A full glyph is roughly as wide as tall; clipping it along one edge (the
+# common case at a plot border) elongates it to at most ~2:1. Comfortable
+# headroom over that keeps a real thin stroke fragment (much more elongated)
+# from being misread as a clipped marker.
+_CLIPPED_FRAGMENT_MAX_ASPECT = 2.5
+
 
 def trace_curve_by_color(
     image: np.ndarray,
@@ -74,12 +86,29 @@ def trace_curve_by_color(
         # otherwise be traced (or detected as a marker) like real data.
         threshold_mask = _mask_without_legend(image, threshold_mask)
     mask = _clean_mask(threshold_mask)
-    blobs = _detect_markers(mask, threshold_mask) if detect_markers else []
+    # Thickness comes from the pre-cleanup mask on purpose: the opening in
+    # _clean_mask wipes out any stroke thinner than its 3x3 kernel, which would
+    # leave only the glyphs behind and make the "stroke" estimate report the
+    # glyph size -- exactly the number the thresholds must stay below.
+    stroke_thickness = estimate_stroke_thickness(threshold_mask)
+    blobs = _detect_markers(mask, stroke_thickness) if detect_markers else []
     # With no glyphs found this is the untouched mask, so a marker-less curve
     # traces exactly as it did before marker support existed.
     line_mask = _mask_without_blobs(mask, blobs)
 
     points = [Point(x=blob.center_x, y=blob.center_y) for blob in blobs]
+    if blobs:
+        # A marker clipped by the plot border isn't reported as a full blob
+        # by detect_marker_blobs -- only part of the glyph was drawn (see its
+        # docstring) -- so it would otherwise fall through to the
+        # column-by-column line tracer and scatter one spurious point per
+        # column instead of the single real (if slightly off-center) data
+        # point it represents. Only attempted when at least one full blob
+        # was found: that gives a real reference size to recognize a partial
+        # one by, without which a genuine thin line segment could easily be
+        # mistaken for a marker fragment.
+        fragment_points, line_mask = _extract_clipped_marker_fragments(line_mask, blobs)
+        points.extend(fragment_points)
     points.extend(_trace_line(line_mask))
     points.sort(key=lambda point: point.x)
     return points
@@ -110,14 +139,41 @@ def _trace_line(mask: np.ndarray) -> list[Point]:
     return points
 
 
-def _detect_markers(mask: np.ndarray, threshold_mask: np.ndarray) -> list[MarkerBlob]:
+def _extract_clipped_marker_fragments(
+    mask: np.ndarray, blobs: list[MarkerBlob]
+) -> tuple[list[Point], np.ndarray]:
+    """Pull out leftover components shaped like a clipped marker, not a line.
+
+    A full marker glyph is roughly as wide as tall; one clipped by the plot
+    border (half its circle cut away, say) keeps a similar overall size but
+    becomes visibly elongated along the cut. A stroke fragment, by contrast,
+    is thin in one dimension -- so "plausible marker size, not too
+    elongated" reliably tells the two apart, using the already-detected
+    blobs' own size as the reference for "plausible".
+    """
+    median_diameter = float(np.median([max(blob.width, blob.height) for blob in blobs]))
+    min_size = median_diameter * _CLIPPED_FRAGMENT_MIN_DIAMETER_RATIO
+    max_size = median_diameter * _CLIPPED_FRAGMENT_MAX_DIAMETER_RATIO
+
+    binary = (mask > 0).astype(np.uint8)
+    count, labels, stats, centroids = cv2.connectedComponentsWithStats(binary, connectivity=8)
+    points: list[Point] = []
+    remaining = mask.copy()
+    for label in range(1, count):
+        width = stats[label, cv2.CC_STAT_WIDTH]
+        height = stats[label, cv2.CC_STAT_HEIGHT]
+        size = max(width, height)
+        aspect = size / min(width, height)
+        if min_size <= size <= max_size and aspect <= _CLIPPED_FRAGMENT_MAX_ASPECT:
+            cx, cy = centroids[label]
+            points.append(Point(x=float(cx), y=float(cy)))
+            remaining[labels == label] = 0
+    return points, remaining
+
+
+def _detect_markers(mask: np.ndarray, thickness: float) -> list[MarkerBlob]:
     height, width = mask.shape
     short_side = min(height, width)
-    # Thickness comes from the pre-cleanup mask on purpose: the opening in
-    # _clean_mask wipes out any stroke thinner than its 3x3 kernel, which would
-    # leave only the glyphs behind and make the "stroke" estimate report the
-    # glyph size -- exactly the number the thresholds must stay below.
-    thickness = estimate_stroke_thickness(threshold_mask)
     min_diameter = max(
         thickness * _MARKER_MIN_DIAMETER_RATIO,
         short_side * _MARKER_MIN_DIAMETER_IMAGE_FRACTION,

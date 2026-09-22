@@ -121,6 +121,25 @@ def test_markers_without_a_connecting_line_trace_to_their_centers_only() -> None
         assert abs(point.y - center_y) < 1.0
 
 
+def test_marker_clipped_by_the_image_border_traces_to_one_point_not_many() -> None:
+    # A scatter-plot marker sitting at (or near) a plot's edge is often
+    # partly cut off by the image border. detect_marker_blobs deliberately
+    # doesn't report a clipped glyph as a full blob (only part of it was
+    # drawn), so without special handling it used to fall through to the
+    # column-wise line tracer and produce one spurious point per column
+    # instead of the single real data point it represents.
+    image = _draw_curve_with_markers(with_line=False)
+    clipped_center = (0, 170)
+    cv2.circle(image, clipped_center, _MARKER_RADIUS, (0, 0, 255), -1)
+
+    traced = trace_curve_by_color(image, target_bgr=(0, 0, 255), tolerance=30.0)
+
+    assert len(traced) == len(_MARKER_CENTERS) + 1
+    near_edge = [p for p in traced if p.x < _MARKER_RADIUS * 2]
+    assert len(near_edge) == 1
+    assert abs(near_edge[0].y - clipped_center[1]) < 2.0
+
+
 def test_marker_free_curve_traces_identically_with_and_without_marker_detection() -> None:
     image, _ = _draw_sine_curve()
 
@@ -320,6 +339,33 @@ def test_hard_example_curve4_no_longer_traces_to_nothing() -> None:
     traced = trace_curve_by_color(image, target_bgr=(127, 127, 127), tolerance=30.0)
 
     assert traced
+
+
+def test_scatter_example_series_match_their_answer_keys() -> None:
+    """Marker-only digitizing (no connecting line at all) against a real scatter chart."""
+    image = cv2.imread(str(_EXAMPLES_DIR / "test_plot_scatter.png"))
+    assert image is not None
+    left, right, bottom, top = _axes_spines(image)
+    transform = CoordinateTransform(
+        x_axis=AxisCalibration(AxisScale.LINEAR, [(left, 0.0), (right, 10.0)]),
+        y_axis=AxisCalibration(AxisScale.LINEAR, [(bottom, 0.0), (top, 10.0)]),
+    )
+    # (series number, color, expected point count) -- exact count, not just an
+    # accuracy tolerance: a marker-only chart has no notion of "the curve
+    # crosses this x", so a missed or spurious point is a distinct failure
+    # mode from a slightly-off one.
+    cases = [(1, (180, 119, 31), 15), (2, (40, 39, 214), 12)]
+    for series_number, bgr, expected_count in cases:
+        traced = [
+            transform.pixel_to_data(point)
+            for point in trace_curve_by_color(image, target_bgr=bgr, tolerance=30.0)
+        ]
+        answer_key = _load_answer_key(_EXAMPLES_DIR / f"test_plot_scatter_curve{series_number}.csv")
+        assert len(traced) == expected_count == len(answer_key), f"series {series_number}"
+        for key_x, key_y in answer_key:
+            nearest = min(traced, key=lambda point: abs(point.x - key_x))
+            assert abs(nearest.x - key_x) < 0.05, f"series {series_number}"
+            assert abs(nearest.y - key_y) < 0.05, f"series {series_number}"
 
 
 def test_sample_color_bgr_reads_exact_pixel() -> None:

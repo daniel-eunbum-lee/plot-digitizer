@@ -138,6 +138,28 @@ def _build_hard() -> list[CurveSpec]:
     ]
 
 
+def _build_scatter() -> list[CurveSpec]:
+    # linestyle "None": markers only, no connecting line -- a scatter plot,
+    # exercising marker-only auto-trace rather than the marker-on-a-line case
+    # the other examples cover. Points are kept well clear of the plot
+    # border deliberately (a marker clipped by the border is a separate,
+    # already-covered synthetic unit test, not something this answer-key
+    # accuracy check needs to also stress). x is evenly spaced with only
+    # mild jitter, not fully uniform-random, so two points can't land close
+    # enough to render as touching/overlapping glyphs -- telling those apart
+    # is a materially harder (and separate) problem this fixture isn't
+    # meant to stress either.
+    rng = np.random.default_rng(_RNG_SEED)
+    x_a = np.round(np.linspace(0.5, 9.5, 15) + rng.uniform(-0.15, 0.15, size=15), 2)
+    y_a = np.round(5 + 3 * np.sin(x_a) + rng.normal(0, 0.3, size=x_a.shape), 2)
+    x_b = np.round(np.linspace(0.5, 9.5, 12) + rng.uniform(-0.15, 0.15, size=12), 2)
+    y_b = np.round(2 + 0.6 * x_b + rng.normal(0, 0.4, size=x_b.shape), 2)
+    return [
+        CurveSpec("Series A", x_a, y_a, "tab:blue", "o", "None", 0.0),
+        CurveSpec("Series B", x_b, y_b, "tab:red", "s", "None", 0.0),
+    ]
+
+
 def _generate(name: str, curves: list[CurveSpec], **render_kwargs: object) -> None:
     png_path = _EXAMPLES_DIR / f"test_plot_{name}.png"
     _render(curves, png_path=png_path, **render_kwargs)  # type: ignore[arg-type]
@@ -179,6 +201,16 @@ def main() -> None:
         legend=True,
     )
     _add_scan_noise(hard_png, sigma=4.0)
+    _generate(
+        "scatter",
+        _build_scatter(),
+        xlim=(0, 10),
+        ylim=(0, 10),
+        yscale="linear",
+        title="Test Plot - Scatter (Marker Only)",
+        grid=False,
+        legend=True,
+    )
 
 
 if __name__ == "__main__":

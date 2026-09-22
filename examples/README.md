@@ -68,3 +68,11 @@ uv run python examples/generate_test_plots.py
     image's scan noise, that auto-trace's accuracy on it is unreliable; manual picking is the
     more reliable way to digitize it too.
 - Also exercises **log-scale axis calibration** (`Calibration → Axes...` → Log scale for Y).
+
+### `test_plot_scatter.png`
+
+- **X axis** (linear): 0–10. **Y axis** (linear): 0–10.
+- **2 series, markers only, no connecting line at all** — a genuine scatter plot:
+  `test_plot_scatter_curve1.csv` (blue circles), `test_plot_scatter_curve2.csv` (red squares).
+- Exercises marker-only auto-trace (`Points → Auto-Trace Curve by Color...` with no stroke to
+  fall back on) rather than the marker-on-a-line case the other examples cover.
