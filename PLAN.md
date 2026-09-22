@@ -215,6 +215,61 @@ misclicks, but worth expanding if real usage shows otherwise.
       all three PNGs and their answer-key CSVs. 134 tests still passing against
       the regenerated fixtures; lint/format/mypy clean.
 
+## M15 — GitHub issue backlog (#6-#8)
+- [x] #8 bug: `AxisCalibrationDialog` was opened via blocking `dialog.exec()`
+      (application-modal), which blocks all input to the canvas underneath --
+      so a real user could never click a calibration point on the image at
+      all, and mouse-wheel zoom on the canvas was blocked the same way. Fixed
+      by switching to non-modal `show()` + a `finished` signal handler in
+      `main_window.py` (`_on_calibration_dialog_finished`), with a guard
+      against opening a second dialog while one is already open. Wheel-zoom
+      was never mode-gated in `canvas.py`, so it now works during calibration
+      "for free" once the canvas can receive events at all -- satisfies the
+      "zoom in/out to pick precisely" part of the ask too, no separate change
+      needed. This is almost certainly also the root cause of #6's "can't get
+      correct data values" complaint (unrelated to tracing accuracy, which
+      checks out fine independently -- see #6 below). 137 tests passing
+      (3 new regression tests), lint/format/mypy clean.
+- [x] #7 enhancement: curve renaming (`CurvePanel`'s new "Rename Curve..."
+      button / double-click a curve in the list, both routed through
+      `QInputDialog.getText`) and multi-curve export: `io_export/csv_export.py`
+      gained `export_curves_csv` (one CSV, `{name}_x`/`{name}_y` column pair
+      per curve, ragged curves padded with blank cells rather than truncated),
+      and a new `io_export/excel_export.py` (`export_curves_excel`, one sheet
+      per curve, with sheet-name sanitization/truncation/dedup for Excel's
+      naming rules) via a new `openpyxl` runtime dependency (+ `types-openpyxl`
+      dev dependency for mypy). Two new File-menu actions wire these in.
+      148 tests passing, lint/format/mypy clean.
+- [x] #6 enhancement/docs:
+      - `.github/workflows/ci.yml`: a `test` job (system Qt libs, `uv sync
+        --locked`, ruff check/format, mypy, pytest under offscreen Qt) and a
+        `docs` job (`mkdocs build`), both on push/PR to `main`.
+      - Extended accuracy-tolerance tests to the medium and hard examples
+        (previously only easy had one): medium's 3 curves within 1% of its
+        100-unit y-range; hard's 2 "normal" curves within a log-scale-relative
+        tolerance, gap-tolerant for heavy curve overlap. Curves 2 and 4 in the
+        hard example are documented (examples/README.md) as known-hard
+        auto-trace cases rather than given a tolerance they can't meet.
+      - **Found and fixed a real accuracy bug in the process**: `curve_trace.
+        _clean_mask`'s despeckling was an unconditional 3x3 morphological
+        "open", which erases *any* stroke thinner than a full 3x3
+        neighborhood -- including a perfectly ordinary 1px hairline, not just
+        noise (confirmed on a clean, noise-free synthetic 1px line: 281/281
+        pixels traced to zero). Now falls back to a connected-component area
+        filter (only when plain opening would erase the mask entirely, so
+        every previously-working case is unaffected) that keys on a
+        component's pixel count rather than its 2D thickness.
+      - MkDocs website (`mkdocs.yml` + `docs/`, Material theme): `docs/index.md`
+        and `docs/examples.md` pull in the existing root `README.md` and
+        `examples/README.md` via `pymdownx.snippets` rather than duplicating
+        content -- single source of truth, at the cost of a few internal
+        relative links not resolving inside the built site (harmless
+        warnings, not build failures; a known, accepted limitation). PDF
+        export deliberately deferred (see discussion) -- heavy native
+        toolchains (weasyprint/pandoc+LaTeX) for uncertain payoff.
+      - New `docs` dependency group (`mkdocs`, `mkdocs-material`).
+      - 152 tests passing, lint/format/mypy clean.
+
 ## Post-v1 additions
 - **Reset Project** (`File → Reset Project...`): confirms, then reloads the current image via the
   existing `open_image()` reset path — discards calibration, perspective, and all points without
