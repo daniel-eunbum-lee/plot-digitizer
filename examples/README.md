@@ -64,5 +64,7 @@ uv run python examples/generate_test_plots.py
     in color to curve 1 to stress-test `Points → Auto-Trace Curve by Color...`'s color tolerance;
     manual picking is the more reliable way to separate the two.
   - `test_plot_hard_curve3.csv` — red, solid, square markers.
-  - `test_plot_hard_curve4.csv` — gray, dash-dot, no markers.
+  - `test_plot_hard_curve4.csv` — gray, dash-dot, no markers — thin enough, combined with this
+    image's scan noise, that auto-trace's accuracy on it is unreliable; manual picking is the
+    more reliable way to digitize it too.
 - Also exercises **log-scale axis calibration** (`Calibration → Axes...` → Log scale for Y).

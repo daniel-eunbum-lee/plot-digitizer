@@ -1,0 +1,34 @@
+site_name: Plot Digitizer
+site_description: Desktop GUI for extracting numeric data points from an image of a chart or plot
+repo_url: https://github.com/daniel-eunbum-lee/plot-digitizer
+repo_name: plot-digitizer
+
+nav:
+  - Home: index.md
+  - Examples: examples.md
+
+theme:
+  name: material
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: indigo
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: indigo
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+  features:
+    - navigation.instant
+    - content.code.copy
+
+markdown_extensions:
+  - admonition
+  - tables
+  - pymdownx.snippets:
+      base_path: ["."]
+      check_paths: true

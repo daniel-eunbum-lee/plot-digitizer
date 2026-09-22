@@ -131,7 +131,11 @@ uv run pytest -m "not gui"       # headless-only subset (no Qt display needed)
 uv run ruff check .              # lint
 uv run ruff format .             # format
 uv run mypy src                  # type check
+uv run --group docs mkdocs serve # docs site, live-reloading, at http://127.0.0.1:8000
 ```
+
+CI (`.github/workflows/ci.yml`) runs lint, format-check, mypy, and the full test suite on every
+push/PR to `main`, plus a separate job that builds the docs site.
 
 See `CLAUDE.md` for the architecture overview and repo conventions, and `PLAN.md` for the
 milestone-by-milestone implementation history and known limitations.

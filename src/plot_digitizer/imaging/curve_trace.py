@@ -34,6 +34,14 @@ from plot_digitizer.model.point import Point
 
 _DEFAULT_TOLERANCE = 30.0
 _MORPHOLOGY_KERNEL = np.ones((3, 3), np.uint8)
+# A genuinely isolated single matched pixel (no matching 8-connected
+# neighbor at all) is essentially never a real stroke fragment -- even a
+# single dash or dot in a dashed/dotted linestyle spans several connected
+# pixels. Deliberately conservative (not a larger multi-pixel-blob
+# threshold): a bigger cutoff starts discarding real short dash/dot
+# fragments too, trading a general fix for overfitting to any one noisy
+# fixture's specific noise statistics.
+_MIN_COMPONENT_AREA = 2
 
 # A glyph is only distinguishable from the stroke it sits on if it is clearly
 # fatter than that stroke; below this multiple the two are the same size and we
@@ -146,6 +154,26 @@ def _threshold_mask(
 def _clean_mask(mask: np.ndarray) -> np.ndarray:
     # Open then close: clears single-pixel color-noise speckles, then fills
     # small gaps anti-aliasing leaves along an otherwise-continuous stroke.
-    cleaned = cv2.morphologyEx(mask, cv2.MORPH_OPEN, _MORPHOLOGY_KERNEL).astype(np.uint8)
-    cleaned = cv2.morphologyEx(cleaned, cv2.MORPH_CLOSE, _MORPHOLOGY_KERNEL).astype(np.uint8)
+    opened = cv2.morphologyEx(mask, cv2.MORPH_OPEN, _MORPHOLOGY_KERNEL).astype(np.uint8)
+    if not opened.any() and mask.any():
+        # Opening requires a full 3x3 same-color neighborhood to survive, so
+        # a stroke thinner than that -- a perfectly real 1px hairline, common
+        # on screenshots/vector-rendered charts, not just noise -- gets
+        # erased entirely rather than just despeckled. Fall back to a
+        # connected-component *area* filter instead, which keys on a
+        # component's total pixel count: a thin-but-long real stroke (many
+        # connected pixels) survives while a truly isolated speck does not.
+        # Only used as a fallback (not unconditionally) so every case that
+        # already worked under plain opening keeps behaving exactly as before.
+        opened = _remove_isolated_pixels(mask)
+    cleaned = cv2.morphologyEx(opened, cv2.MORPH_CLOSE, _MORPHOLOGY_KERNEL).astype(np.uint8)
     return cleaned
+
+
+def _remove_isolated_pixels(mask: np.ndarray) -> np.ndarray:
+    count, labels, stats, _ = cv2.connectedComponentsWithStats(mask, connectivity=8)
+    keep = np.ones(count, dtype=bool)
+    keep[0] = False  # background label
+    keep[stats[:, cv2.CC_STAT_AREA] < _MIN_COMPONENT_AREA] = False
+    result: np.ndarray = keep[labels].astype(np.uint8)
+    return result
