@@ -178,32 +178,45 @@ class MainWindow(QMainWindow):
         if self.project is None:
             QMessageBox.information(self, "No image loaded", "Open an image before calibrating.")
             return
+        if self._calibration_dialog is not None:
+            # Already open: surface it instead of stacking a second one.
+            self._calibration_dialog.raise_()
+            self._calibration_dialog.activateWindow()
+            return
 
+        # Non-modal (show(), not exec()): a modal dialog here would block the
+        # canvas underneath entirely, making it impossible to click a
+        # calibration point on the image at all -- exactly the reported bug.
         dialog = AxisCalibrationDialog(self, image=self._working_image, scene=self.canvas.scene())
         dialog.pickRequested.connect(self._arm_calibration_pick)
+        dialog.finished.connect(self._on_calibration_dialog_finished)
         self._calibration_dialog = dialog
         self.canvas.mode = InteractionMode.CALIBRATE
+        dialog.setModal(False)
+        dialog.show()
 
-        try:
-            if dialog.exec() == QDialog.DialogCode.Accepted:
-                assert dialog.x_calibration is not None
-                assert dialog.y_calibration is not None
-                self.project.x_axis = dialog.x_calibration
-                self.project.y_axis = dialog.y_calibration
-                self._refresh_calibration_overlays()
-                self._refresh_point_table()
-        finally:
-            # Idempotent: accept/reject already cleared them. This only covers
-            # exec() returning by some other path, so no temporary overlay can
-            # survive the dialog and shadow the permanent ones.
-            dialog.clear_overlays()
-            self._calibration_dialog = None
-            self._pending_calibration_axis = None
-            self.canvas.mode = (
-                InteractionMode.PICK_POINT
-                if self._pick_points_action.isChecked()
-                else InteractionMode.PAN
-            )
+    def _on_calibration_dialog_finished(self, result: int) -> None:
+        dialog = self._calibration_dialog
+        assert dialog is not None
+        if result == QDialog.DialogCode.Accepted and self.project is not None:
+            assert dialog.x_calibration is not None
+            assert dialog.y_calibration is not None
+            self.project.x_axis = dialog.x_calibration
+            self.project.y_axis = dialog.y_calibration
+            self._refresh_calibration_overlays()
+            self._refresh_point_table()
+        # Idempotent: accept/reject already cleared them. This only covers
+        # the dialog closing by some other path (e.g. the window's close
+        # button), so no temporary overlay can survive it and shadow the
+        # permanent ones.
+        dialog.clear_overlays()
+        self._calibration_dialog = None
+        self._pending_calibration_axis = None
+        self.canvas.mode = (
+            InteractionMode.PICK_POINT
+            if self._pick_points_action.isChecked()
+            else InteractionMode.PAN
+        )
 
     def _on_pick_points_toggled(self, checked: bool) -> None:
         self.canvas.mode = InteractionMode.PICK_POINT if checked else InteractionMode.PAN

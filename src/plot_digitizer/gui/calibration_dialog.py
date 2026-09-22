@@ -256,7 +256,13 @@ class _AxisPanel(QGroupBox):
 
 
 class AxisCalibrationDialog(QDialog):
-    """Modal dialog: request a canvas click via `pickRequested`, receive it via `add_point`."""
+    """Non-modal dialog: request a canvas click via `pickRequested`, receive it via `add_point`.
+
+    Must stay non-modal (shown with `show()`, not `exec()`) since the whole
+    point-picking workflow is: click "Add X/Y Reference Point" here, then
+    click the actual pixel on the canvas -- a modal dialog would block all
+    input to the canvas underneath and make that second click impossible.
+    """
 
     pickRequested = Signal(str)
 
