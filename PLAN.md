@@ -267,6 +267,14 @@ misclicks, but worth expanding if real usage shows otherwise.
         warnings, not build failures; a known, accepted limitation). PDF
         export deliberately deferred (see discussion) -- heavy native
         toolchains (weasyprint/pandoc+LaTeX) for uncertain payoff.
+      - **Follow-up**: the `docs` CI job initially only ran `mkdocs build` as
+        a sanity check (catches broken config/links) -- it never published
+        the built HTML anywhere, which wasn't made clear enough at the time.
+        Added a `deploy-docs` job (`actions/upload-pages-artifact` +
+        `actions/deploy-pages`, push-to-main only, PRs still just build) to
+        actually publish it to GitHub Pages. **Requires a one-time manual
+        step the repo owner has to do**: Settings -> Pages -> Source ->
+        "GitHub Actions" -- not something this job can flip on its own.
       - New `docs` dependency group (`mkdocs`, `mkdocs-material`).
       - 152 tests passing, lint/format/mypy clean.
 

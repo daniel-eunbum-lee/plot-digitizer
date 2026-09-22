@@ -20,7 +20,6 @@ jobs:
         uses: astral-sh/setup-uv@v3
         with:
           version: "latest"
-          python-version: "3.12"
 
       - name: Sync dependencies
         run: uv sync --locked
@@ -41,6 +40,10 @@ jobs:
 
   docs:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
     steps:
       - uses: actions/checkout@v4
 
@@ -48,10 +51,33 @@ jobs:
         uses: astral-sh/setup-uv@v3
         with:
           version: "latest"
-          python-version: "3.12"
 
       - name: Sync docs dependencies
         run: uv sync --locked --group docs
 
       - name: Build docs site
         run: uv run mkdocs build
+
+      # Only push-to-main gets published; a PR's docs job still runs the
+      # build above as a sanity check (broken config/links) without
+      # publishing whatever that branch happens to contain.
+      - name: Upload docs artifact
+        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+
+  deploy-docs:
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    needs: docs
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
